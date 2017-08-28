@@ -20,7 +20,7 @@ View.prototype.render = function (viewCommand, parameter) {
   const viewCommands = {
     'rotateCard': function () {
       let $card = Array.from(self.$cards).filter($card => $card.id == parameter.toString())[0]
-      $card.style.webkitTransform += 'rotateY(180deg)'
+      $card.style.transform += 'rotateY(180deg)'
 
 
     },
