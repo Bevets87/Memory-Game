@@ -26,19 +26,17 @@ View.prototype.render = function (viewCommand, parameter) {
     },
     'displayCards': function () {
       Array.from(self.$cards).forEach(($card, index) => {
-        const { name, icon, id } = parameter[index]
+        const { icon, id } = parameter[index]
         const $h1 = document.createElement('h1')
         const $i = document.createElement('i')
         $i.className = icon
         $h1.appendChild($i)
         $card.id = id
-        $card.dataset.title = name
         $card.children[1].appendChild($h1)
       })
     },
     'removeCard': function () {
       let $card = Array.from(self.$cards).filter($card => $card.id == parameter.toString())[0]
-      $card.dataset.title = ''
       $card.children[1].children[0].removeChild($card.children[1].children[0].children[0])
       $card.children[1].removeChild($card.children[1].children[0])
     }

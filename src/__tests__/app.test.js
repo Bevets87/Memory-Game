@@ -127,7 +127,7 @@ document.body.innerHTML =
 
 
 
-const app = new App()
+var app = new App()
 
 
 describe('App', () => {
@@ -143,7 +143,7 @@ describe('App', () => {
     })
   })
   test('it has a method that sets model to original state', () => {
-    app.model.resetState(state => {
+    app.model.initState(state => {
       expect(app.model.state.cards[0].name).toBe("amazon-web-services")
     })
   })

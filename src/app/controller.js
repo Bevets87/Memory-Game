@@ -6,8 +6,10 @@ function Controller (model, view) {
   self.model = model
   self.view = view
   //init game from initial state of model and display cards
-  self.shuffleCards(self.model.state.cards, state => {
-    self.view.render('displayCards', state.cards)
+  self.model.initState(state => {
+    self.shuffleCards(state.cards, state => {
+      self.view.render('displayCards', state.cards)
+    })
   })
 
   // update state of model when user interacts with view
@@ -60,7 +62,7 @@ function Controller (model, view) {
             self.view.render('rotateCard', card.id)
             self.view.render('removeCard', card.id)
           })
-          self.model.resetState(state => {
+          self.model.initState(state => {
             self.shuffleCards(state.cards, state => {
               self.view.render('displayCards', state.cards)
             })
