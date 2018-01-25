@@ -1,90 +1,149 @@
-import _ from 'lodash'
+class Controller {
+  constructor (model, view) {
+    const self = this;
 
-function Controller (model, view) {
-  var self = this
+    self.model = model;
+    self.view = view;
 
-  self.model = model
-  self.view = view
-  //init game from initial state of model and display cards
-  self.model.initState(state => {
-    self.shuffleCards(state.cards, state => {
-      self.view.render('displayCards', state.cards)
+    self.handleUserCardPick = this.setResponsibilityChain(this.addPick, this.isMatch, this.resetGame)
+
+    self.view.bind('startGame', () => {
+      self.startGame({...self.model.state})
     })
-  })
 
-  // update state of model when user interacts with view
-  self.view.bind('userPickCard', function (cardID) {
+    self.view.bind('userCardPick', pick_id => {
+      self.handleUserCardPick({...self.model.state, picked_card: self.model.state.cards.filter(card => card.id === pick_id)})
+    })
 
-    let { picks, matches } = self.model.state
-    let cards = self.model.state.cards.slice()
-    // get card from model that was picked in view
-    let card = _.find(cards, {id: cardID})
-    // if card was not picked, not matched, and picks < 2 then pick card
-    if (!card.picked && !card.matched && picks < 2) {
-      // update state of model with picked card and pick count
-      let cardIndex = _.findIndex(cards, {id: card.id})
-      cards[cardIndex].picked = true
-      picks++
+  }
 
-      self.model.setState({cards: cards, picks: picks}, state => {
-        self.view.render('rotateCard', state.cards[cardIndex].id)
-      })
-      // if pick count equals two then check to see if cards match
-      if (picks == 2) {
-        const pickedCards = cards.filter(card => card.picked === true)
-        let cardIndexOne = _.findIndex(cards, {id: pickedCards[0].id})
-        let cardIndexTwo = _.findIndex(cards, {id: pickedCards[1].id})
-        // if cards match then change status picked to status matched and update model
-        if (pickedCards[0].name === pickedCards[1].name) {
-          cards[cardIndexOne].matched = true
-          cards[cardIndexOne].picked = false
-          cards[cardIndexTwo].matched = true
-          cards[cardIndexTwo].picked = false
-          matches++
-          self.model.setState({cards: cards, picks: 0, matches: matches}, () => {})
-        } else {
-          //if cards dont match then remove status picked and update state of model
-          setTimeout(() => {
-            cards[cardIndexOne].picked = false
-            cards[cardIndexTwo].picked = false
+  startGame = ({ cards }) => {
+    this.model.setState({
+      cards: cards.slice()
+    }, newState => {
+      this.view.render('displayCards', {cards: newState.cards})
+    })
+  }
 
-            self.model.setState({cards: cards, picks: 0}, state => {
-              self.view.render('rotateCard', state.cards[cardIndexOne].id)
-              self.view.render('rotateCard', state.cards[cardIndexTwo].id)
-            })
-          }, 800)
-        }
-      }
-      //if all cards have been matched then reset game
-      if (matches === 15) {
-        setTimeout(() => {
-          cards.forEach(card => {
-            self.view.render('rotateCard', card.id)
-            self.view.render('removeCard', card.id)
-          })
-          self.model.initState(state => {
-            self.shuffleCards(state.cards, state => {
-              self.view.render('displayCards', state.cards)
-            })
-          })
-        }, 800)
+  /* Chain Of Responsibility Design Pattern */
+  setResponsibilityChain = (...tasks) => {
+    let chain = [];
+
+    tasks
+    .map(task => task())
+    .reduce((acc, curr) => {
+      acc.setNext(curr)
+      chain.push(acc)
+      return curr;
+    })
+
+    let taskOne = chain.shift()
+
+    return (args) => {
+      taskOne.execute(args)
+    }
+  }
+
+  addPick = () => ({
+    next:null,
+    setNext: nextHandler => {
+      this.addPick.next = nextHandler
+    },
+    execute: ({ pickCount, cards, picked_card }) => {
+      if (pickCount < 2) {
+        let [pickedCard, newPickCount ] = picked_card.reduce((arr, pickedCard) => {
+          if (!pickedCard.picked && !pickedCard.matched) {
+            pickedCard.picked = true;
+            pickCount++;
+          } else {
+            pickedCard = null;
+          }
+            arr.push(pickedCard, pickCount)
+            return arr
+        },[])
+
+        this.model.setState({
+          cards: cards.map(card => pickedCard && card.id === pickedCard.id ? pickedCard : card),
+          pickCount: newPickCount
+        }, newState => {
+          this.view.render('rotateCard', {card: pickedCard ? pickedCard : null})
+          if (newState.pickCount === 2) {
+            this.addPick.next.execute({...newState})
+          }
+        })
+
       }
     }
   })
-}
 
-Controller.prototype.shuffleCards = function (cards, cb) {
-  var self = this
-  cards = cards.slice()
-  var shuffled = [];
-  while (cards.length > 0) {
-    var randomIndex = Math.floor(Math.random() * cards.length)
-    shuffled.push(cards[randomIndex])
-    cards.splice(randomIndex, 1)
-  }
-  self.model.setState({cards: shuffled}, state => {
-    cb(state)
+  isMatch = () => ({
+    next: null,
+    setNext: nextHandler => {
+      this.isMatch.next = nextHandler
+    },
+    execute: ({ cards, matchCount }) => {
+
+      let [ newMatchCount, cardOne, cardTwo ] = cards
+      .filter(card => card.picked)
+      .reduce((cardOne, cardTwo) => {
+        cardOne.picked = false;
+        cardTwo.picked = false;
+        if (cardOne.name === cardTwo.name) {
+          cardOne.matched = true;
+          cardTwo.matched = true;
+          matchCount++;
+        }
+        return [matchCount, cardOne, cardTwo]
+      })
+
+      this.model.setState({
+        cards: cards
+        .map(card => card.id === cardOne.id ? cardOne : card)
+        .map(card => card.id === cardTwo.id ? cardTwo : card),
+        matchCount: newMatchCount,
+        }, newState => {
+        setTimeout(() => {
+          this.view.render('rotateCard', {card: !cardOne.matched ? cardOne : null})
+          this.view.render('rotateCard', {card: !cardTwo.matched ? cardTwo : null})
+          this.model.setState({pickCount: 0})
+        }, 500)
+        if (newState.matchCount === 15) {
+          this.isMatch.next.execute({cards: newState.cards})
+        }
+      })
+
+    }
+
   })
+
+  resetGame = () => ({
+    next: null,
+    setNext: nextHandler => {
+      this.resetGame.next = nextHandler
+    },
+    execute: ({ cards }) => {
+      cards.map(card => {this.view.render('removeCard', {card: card})})
+      setTimeout(() => {cards.map(card => {this.view.render('rotateCard', {card: card})})},500)
+
+      this.model.setState({
+        cards: cards.map(card => {card.matched = false; card.picked = false; return card}),
+        pickCount: 0,
+        matchCount: 0
+      }, newState => {
+         this.view.render('displayCards', {cards: newState.cards})
+      })
+    }
+  })
+
+  shuffleCards = cards => {
+    var shuffled = [];
+    while (cards.length > 0) {
+      var randomIndex = Math.floor(Math.random() * cards.length)
+      shuffled.push(cards[randomIndex])
+      cards.splice(randomIndex, 1)
+    }
+    return shuffled;
+  }
 }
 
 export default Controller

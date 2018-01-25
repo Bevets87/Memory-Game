@@ -13,7 +13,7 @@ body {
   flex-wrap: wrap;
 }
 .card {
-
+  position: relative;
   cursor: pointer;
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
