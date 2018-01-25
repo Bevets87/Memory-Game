@@ -135,10 +135,25 @@ class App {
     this.controller = new Controller(this.model, this.view)
   }
 }
-var app = new App()
 
+const app = new App()
 
 describe('App', () => {
+
+  beforeEach(() => {
+    app.view.render('displayCards', {cards: app.model.state.cards})
+    app.view.bind('userCardPick', pick_id => {
+      app.view.render('rotateCard', {card: app.model.cards[pick_id]})
+    })
+  })
+
+  afterEach(() => {
+    app.model.state.cards.forEach(card => {
+      app.view.render('removeCard', {card: card})
+    })
+
+  })
+
   //model tests
   test('it holds an object called state that contains game data', () => {
     expect(app.model.state.pickCount).toBe(0)
@@ -160,16 +175,13 @@ describe('App', () => {
   })
   //view tests
   test('it has a method that binds user click event and updates state', () => {
-    const $cards= document.querySelectorAll('.card')
-
+    const $card = document.getElementById("1");
     let event = new MouseEvent('click', {
-        bubbles: true,
+        bubbles: false,
         cancelable: false
     })
-    $card.dispatchEvent(event)*/
-    let $card = _.find($cards, {id: 6})
-    //expect(card.picked).toBe(true)
-    expect($card).toEqual(5)
+    $card.dispatchEvent(event)
+    expect(app.model.state.cards[1].picked).toEqual(true)
   })
   test('it has a method that renders card rotation based on user click', () => {
     app.view.render('rotateCard', 4)

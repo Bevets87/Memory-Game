@@ -19,7 +19,7 @@ class Controller {
 
   startGame = ({ cards }) => {
     this.model.setState({
-      cards: cards.slice()
+      cards: this.shuffleCards(cards)
     }, newState => {
       this.view.render('displayCards', {cards: newState.cards})
     })
@@ -101,19 +101,17 @@ class Controller {
         .map(card => card.id === cardOne.id ? cardOne : card)
         .map(card => card.id === cardTwo.id ? cardTwo : card),
         matchCount: newMatchCount,
-        }, newState => {
+      }, newState => {
         setTimeout(() => {
           this.view.render('rotateCard', {card: !cardOne.matched ? cardOne : null})
           this.view.render('rotateCard', {card: !cardTwo.matched ? cardTwo : null})
           this.model.setState({pickCount: 0})
         }, 500)
         if (newState.matchCount === 15) {
-          this.isMatch.next.execute({cards: newState.cards})
+          this.isMatch.next.execute({cards: newState.cards.slice()})
         }
       })
-
     }
-
   })
 
   resetGame = () => ({
@@ -122,20 +120,21 @@ class Controller {
       this.resetGame.next = nextHandler
     },
     execute: ({ cards }) => {
-      cards.map(card => {this.view.render('removeCard', {card: card})})
-      setTimeout(() => {cards.map(card => {this.view.render('rotateCard', {card: card})})},500)
+      cards.forEach(card => {this.view.render('removeCard', {card: card})})
+      setTimeout(() => {cards.forEach(card => {this.view.render('rotateCard', {card: card})})},500)
 
       this.model.setState({
-        cards: cards.map(card => {card.matched = false; card.picked = false; return card}),
+        cards: cards.map(card => {card.matched = false;card.picked = false;return card}),
         pickCount: 0,
         matchCount: 0
       }, newState => {
-         this.view.render('displayCards', {cards: newState.cards})
+        this.view.render('displayCards', {cards:this.shuffleCards(newState.cards)})
       })
     }
   })
 
   shuffleCards = cards => {
+    cards = cards.slice()
     var shuffled = [];
     while (cards.length > 0) {
       var randomIndex = Math.floor(Math.random() * cards.length)
